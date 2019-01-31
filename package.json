@@ -1,0 +1,25 @@
+{
+  "name": "bad-paint",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:guansss/bad-paint.git",
+  "author": "guansss",
+  "license": "MIT",
+  "scripts": {
+    "start": "babel-node index.js"
+  },
+  "dependencies": {
+    "http-proxy": "^1.17.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.2.2",
+    "@babel/node": "^7.2.2",
+    "@babel/preset-env": "^7.3.1"
+  },
+  "babel": {
+    "presets": [
+      "@babel/preset-env"
+    ]
+  },
+  "browserslist": "current node"
+}
