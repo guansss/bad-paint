@@ -44,7 +44,7 @@ fun generateVideoFile(dir: File): File {
     val files = dir.listFiles()
     files.sortBy { it.name }
 
-    val outputFile = File(dir.absolutePath, dir.name + ".bin")
+    val outputFile = File(dir.absolutePath, dir.name + ".bpv")
     val output = BufferedOutputStream(FileOutputStream(outputFile))
 
     val fileNumLength = "${files.size}".length
