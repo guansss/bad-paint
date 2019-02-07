@@ -4,15 +4,38 @@ import java.io.*
 import java.lang.Exception
 import javax.imageio.ImageIO
 
-const val IMAGE_WIDTH = 38
-const val IMAGE_HEIGHT = 22
+const val FRAME_WIDTH = 37
+const val FRAME_HEIGHT = 22
 
 fun main(args: Array<String>) {
     val startTime = System.currentTimeMillis()
 
     val cwd = File(if (args.isNotEmpty()) args[0] else ".")
 
-    generateVideoFile(cwd)
+    val outputFile = generateVideoFile(cwd)
+    val data = outputFile.readBytes()
+
+    var x = 0
+    var y = 0
+
+    for (i in 0 until data.size) {
+        val dataByte = data[i]
+
+        for (bit in 7 downTo 0) {
+            print("${(dataByte.toInt() shr bit) and 1}".repeat(2))
+
+            if (++x >= FRAME_WIDTH) {
+                x = 0
+                println()
+
+                if (++y >= FRAME_HEIGHT) {
+                    y = 0
+                    println()
+                    break
+                }
+            }
+        }
+    }
 
     println("\nFinished in ${System.currentTimeMillis() - startTime} ms")
 }
@@ -53,44 +76,53 @@ fun generateVideoFile(dir: File): File {
  */
 fun readImage(file: File): ByteArray {
     val image = ImageIO.read(file) ?: throw Exception("Not an image")
+    val imageWidth = image.width
 
-    if (image.width != IMAGE_WIDTH && image.height != IMAGE_HEIGHT)
-        throw Exception("Image size mismatch")
+    val scaleX = image.width / FRAME_WIDTH
+    val scaleY = image.height / FRAME_HEIGHT
 
-    val data = ByteArray(Math.ceil(IMAGE_WIDTH * IMAGE_HEIGHT / (8.0 /* bit */)).toInt())
+    val data = ByteArray(Math.ceil(FRAME_WIDTH * FRAME_HEIGHT / (8.0 /* bit */)).toInt())
 
     val pixels = (image.raster.dataBuffer as DataBufferByte).data
-    val pixelsSize = pixels.size
     val pixelLength = if (image.alphaRaster == null) 3 else 4
 
-    for (i in 0 until data.size) {
-        var dataByte = 0
+    var dataByte = 0
+    var bit = 0
+    var i = 0
 
-        for (bit in 0 until 8) {
-            val pixelIndex = ((i * 8) + bit) * pixelLength + (pixelLength - 3 /* offset the alpha channel */)
+    for (y in 0 until FRAME_HEIGHT) {
+        for (x in 0 until FRAME_WIDTH) {
+            val pixelIndex = (y * scaleY * imageWidth + x * scaleX) * pixelLength +
+                    (pixelLength - 3 /* offset the alpha channel */)
 
-            if (pixelIndex < pixelsSize) {
-                val hsb = Color.RGBtoHSB(
-                    0xff and pixels[pixelIndex + 2].toInt(),
-                    0xff and pixels[pixelIndex + 1].toInt(),
-                    0xff and pixels[pixelIndex].toInt(),
-                    null
-                )
-                val brightness = (hsb[2] + 0.5).toInt() // 0 for dark, 1 for bright
+            val hsb = Color.RGBtoHSB(
+                0xff and pixels[pixelIndex + 2].toInt(),
+                0xff and pixels[pixelIndex + 1].toInt(),
+                0xff and pixels[pixelIndex].toInt(),
+                null
+            )
+            val brightness = (hsb[2] + 0.5).toInt() // 0 for dark, 1 for bright
 
-                dataByte = dataByte or (brightness shl (7 - bit))
+            dataByte = dataByte or (brightness shl (7 - bit))
+
+            if (++bit == 8) {
+                bit = 0
+                data[i++] = dataByte.toByte()
+                dataByte = 0
             }
         }
+    }
 
+    if (i < data.size) {
         data[i] = dataByte.toByte()
     }
 
 //    var dataByte = 0
 //    var bit = 0
 //    var i = 0
-//    for (y in 0 until IMAGE_HEIGHT) {
-//        for (x in 0 until IMAGE_WIDTH) {
-//            val color = Color(image.getRGB(x, y))
+//    for (y in 0 until FRAME_HEIGHT) {
+//        for (x in 0 until FRAME_WIDTH) {
+//            val color = Color(image.getRGB(x * scaleX, y * scaleY))
 //            val hsb = Color.RGBtoHSB(color.red, color.green, color.blue, null)
 //
 //            dataByte = dataByte or ((hsb[2] + 0.5).toInt() shl (7 - bit))
