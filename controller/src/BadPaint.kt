@@ -1,6 +1,5 @@
 import com.sun.jna.platform.win32.User32
 import com.sun.jna.platform.win32.WinDef
-import java.awt.Point
 import java.awt.Rectangle
 import java.io.File
 import java.lang.Exception
@@ -9,8 +8,8 @@ const val CANVAS_COLS = 37
 const val CANVAS_ROWS = 22
 
 val CANVAS_RECT = Rectangle(416, 164, 1110, 660)
-val PAINT_BLACK = Point(1700, 200)
-val PAINT_WHITE = Point(1700, 330)
+val PAINT_BLACK = Paint(0, 1700, 200)
+val PAINT_WHITE = Paint(1, 1700, 330)
 
 fun main(args: Array<String>) {
     if (args.isEmpty() || !args[0].endsWith(".bpv"))
@@ -26,43 +25,37 @@ fun play(win: Window, file: File) {
 
     val minX = CANVAS_RECT.x + gridSize / 2
     val minY = CANVAS_RECT.y + gridSize / 2
-    val width = CANVAS_RECT.width
-    val height = CANVAS_RECT.height
 
     val data = file.readBytes()
-    var x = 0
-    var y = 0
+
+    val canvasData = ByteArray(CANVAS_COLS * CANVAS_ROWS)
     var paint = PAINT_BLACK
 
-    for (i in 0 until CANVAS_COLS * CANVAS_ROWS / 8 + 1) {
-        val dataByte = data[i]
+    fun printCanvas() {
+        for (y in 0 until CANVAS_ROWS) {
+            for (x in 0 until CANVAS_COLS) {
+                print("${canvasData[y * CANVAS_COLS + x]}".repeat(2))
+            }
+            println()
+        }
+    }
 
-        for (bit in 7 downTo 0) {
-            print("${(dataByte.toInt() shr bit) and 1}".repeat(2))
+    for (i in 0 until data.size step 2) {
+        if (data[i] != END_OF_FRAME) {
+            val x = 0xff and data[i].toInt()
+            val y = 0xff and data[i + 1].toInt()
+            val index = y * CANVAS_COLS + x
 
-            val curPaint: Point = if ((dataByte.toInt() shr bit) and 1 == 0) PAINT_BLACK else PAINT_WHITE
+            canvasData[index] = (1 - canvasData[index]).toByte()
 
-            if (curPaint !== paint) {
-                win.click(curPaint.x, curPaint.y)
-                paint = curPaint
+            if (canvasData[index] != paint.value) {
+                // toggle paint between black and white
+                paint = if (paint === PAINT_BLACK) PAINT_WHITE else PAINT_BLACK
+                win.click(paint.x, paint.y)
             }
 
-            win.click(minX + x, minY + y)
-            Thread.sleep(200)
-
-            x += gridSize
-
-            if (x >= width) {
-                x = 0
-                y += gridSize
-                println()
-
-                if (y >= height) {
-                    y = 0
-                    println()
-                    break // break to prevent outputting overflowed bits
-                }
-            }
+            win.click(minX + x * gridSize, minY + y * gridSize)
+            printCanvas()
         }
     }
 }
@@ -72,7 +65,7 @@ interface Window {
 }
 
 class MuMuWindow(private val hWnd: WinDef.HWND) : Window {
-    var scale: Float
+    private var scale: Float
 
     init {
         val rect = WinDef.RECT()
@@ -83,8 +76,11 @@ class MuMuWindow(private val hWnd: WinDef.HWND) : Window {
 
     override fun click(x: Int, y: Int) {
         click(hWnd, (x * scale).toInt(), (35 + y * scale).toInt())
+        Thread.sleep(200)
     }
 }
+
+data class Paint(val value: Byte, val x: Int, val y: Int)
 
 const val WM_LBUTTONDOWN = 0x0201
 const val WM_LBUTTONUP = 0x0202
