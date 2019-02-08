@@ -105,14 +105,20 @@ class MuMuWindow(private val hWnd: WinDef.HWND) {
             // toggle paint between black and white
             paint = if (paint === blackPaint) whitePaint else blackPaint
             click(hWnd, paint)
+            Thread.sleep(10)
         }
 
         val pixel =
             windowToScreen(Point(CANVAS_ORIGIN.x + col * CANVAS_GRID_SIZE, CANVAS_ORIGIN.y + row * CANVAS_GRID_SIZE))
+        var waitTimes = 0
 
         while (getBrightness(pixel) != brightness) {
-            click(hWnd, pixel)
-            Thread.sleep(250)
+            if (waitTimes-- == 0) {
+                // if the pixel still didn't change after checking for 8 times, then redraw it
+                waitTimes = 8
+                click(hWnd, pixel)
+            }
+            Thread.sleep(50) // wait for pixel to change
         }
     }
 
