@@ -78,7 +78,7 @@ fun play(win: MuMuWindow, file: File) {
 }
 
 class MuMuWindow(private val hWnd: WinDef.HWND) {
-    private val canvasHWnd = getWindow("canvas", hWnd)
+    private val canvasHDC = User32.INSTANCE.GetDC(getWindow("canvas", hWnd))
     private var scale: Float
     private var rect: Rectangle
 
@@ -123,9 +123,7 @@ class MuMuWindow(private val hWnd: WinDef.HWND) {
     }
 
     private fun getBrightness(point: Point): Byte {
-        val hdc = User32.INSTANCE.GetDC(canvasHWnd)
-        val color = Color(WinGDI.INSTANCE.GetPixel(hdc, point.x, point.y - 35).toInt())
-        User32.INSTANCE.ReleaseDC(canvasHWnd, hdc)
+        val color = Color(WinGDI.INSTANCE.GetPixel(canvasHDC, point.x, point.y - 35).toInt())
         return (Color.RGBtoHSB(color.red, color.green, color.blue, null)[2] + 0.5).toByte()
     }
 
