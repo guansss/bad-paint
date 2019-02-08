@@ -1,5 +1,6 @@
 import com.sun.jna.platform.win32.User32
 import com.sun.jna.platform.win32.WinDef
+import java.awt.Point
 import java.awt.Rectangle
 import java.io.File
 import java.lang.Exception
@@ -8,6 +9,9 @@ const val CANVAS_COLS = 37
 const val CANVAS_ROWS = 22
 
 val CANVAS_RECT = Rectangle(416, 164, 1110, 660)
+val CANVAS_GRID_SIZE = CANVAS_RECT.width / CANVAS_COLS
+val CANVAS_ORIGIN = Point(CANVAS_RECT.x + CANVAS_GRID_SIZE / 2, CANVAS_RECT.y + CANVAS_GRID_SIZE / 2)
+
 val PAINT_BLACK = Paint(0, 1700, 200)
 val PAINT_WHITE = Paint(1, 1700, 330)
 
@@ -16,33 +20,18 @@ fun main(args: Array<String>) {
         throw Exception("Argument required")
 
     val hWnd = getWindow("MuMu") ?: throw Exception("Window not found")
-    val muMuWin = MuMuWindow(hWnd)
+    val win = MuMuWindow(hWnd)
 
     if (args[0] == "reset") {
-        reset(muMuWin)
+        win.reset()
     } else {
         if (args[0].endsWith(".bpv")) {
-            play(muMuWin, File(args[0]))
+            play(win, File(args[0]))
         } else throw Exception("A .bpv file is required to play")
     }
 }
 
-fun reset(win: Window) {
-    val gridSize = CANVAS_RECT.width / CANVAS_COLS
-    val minX = CANVAS_RECT.x + gridSize / 2
-    val minY = CANVAS_RECT.y + gridSize / 2
-
-    for (y in 0 until CANVAS_ROWS * gridSize step gridSize)
-        for (x in 0 until CANVAS_COLS * gridSize step gridSize)
-            win.click(minX + x, minY + y)
-}
-
-fun play(win: Window, file: File) {
-    val gridSize = CANVAS_RECT.width / CANVAS_COLS
-
-    val minX = CANVAS_RECT.x + gridSize / 2
-    val minY = CANVAS_RECT.y + gridSize / 2
-
+fun play(win: MuMuWindow, file: File) {
     val data = file.readBytes()
 
     val canvasData = ByteArray(CANVAS_COLS * CANVAS_ROWS)
@@ -59,9 +48,9 @@ fun play(win: Window, file: File) {
 
     for (i in 0 until data.size step 2) {
         if (data[i] != END_OF_FRAME) {
-            val x = 0xff and data[i].toInt()
-            val y = 0xff and data[i + 1].toInt()
-            val index = y * CANVAS_COLS + x
+            val col = 0xff and data[i].toInt()
+            val row = 0xff and data[i + 1].toInt()
+            val index = row * CANVAS_COLS + col
 
             canvasData[index] = (1 - canvasData[index]).toByte()
 
@@ -71,17 +60,16 @@ fun play(win: Window, file: File) {
                 win.click(paint.x, paint.y)
             }
 
-            win.click(minX + x * gridSize, minY + y * gridSize)
+            win.clickCanvas(col, row)
             printCanvas()
+            Thread.sleep(200)
+        } else {
+            println()
         }
     }
 }
 
-interface Window {
-    fun click(x: Int, y: Int)
-}
-
-class MuMuWindow(private val hWnd: WinDef.HWND) : Window {
+class MuMuWindow(private val hWnd: WinDef.HWND) {
     private var scale: Float
 
     init {
@@ -91,9 +79,21 @@ class MuMuWindow(private val hWnd: WinDef.HWND) : Window {
         println("MuMu scale: $scale")
     }
 
-    override fun click(x: Int, y: Int) {
+    fun click(x: Int, y: Int) {
         click(hWnd, (x * scale).toInt(), (35 + y * scale).toInt())
-        Thread.sleep(200)
+    }
+
+    fun clickCanvas(col: Int, row: Int) {
+        click(CANVAS_ORIGIN.x + col * CANVAS_GRID_SIZE, CANVAS_ORIGIN.y + row * CANVAS_GRID_SIZE)
+    }
+
+    fun reset() {
+        for (y in 0 until CANVAS_ROWS * CANVAS_GRID_SIZE step CANVAS_GRID_SIZE) {
+            for (x in 0 until CANVAS_COLS * CANVAS_GRID_SIZE step CANVAS_GRID_SIZE) {
+                click(CANVAS_ORIGIN.x + x, CANVAS_ORIGIN.y + y)
+                Thread.sleep(200)
+            }
+        }
     }
 }
 
