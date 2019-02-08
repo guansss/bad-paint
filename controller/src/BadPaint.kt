@@ -1,6 +1,7 @@
 import com.sun.jna.Pointer
 import com.sun.jna.platform.win32.User32
 import com.sun.jna.platform.win32.WinDef
+import com.sun.jna.platform.win32.WinUser
 import java.awt.Color
 import java.awt.Point
 import java.awt.Rectangle
@@ -74,7 +75,7 @@ fun play(win: MuMuWindow, file: File) {
         }
     }
 
-    println("Total (${System.currentTimeMillis() - startTime})")
+    println("Total (${System.currentTimeMillis() - startTime} ms)")
 }
 
 class MuMuWindow(private val hWnd: WinDef.HWND) {
@@ -164,27 +165,27 @@ val LPARAM_NONE = WinDef.LPARAM(0L)
 fun getWindow(name: String, parent: WinDef.HWND?): WinDef.HWND? {
     var hWnd: WinDef.HWND? = null
 
-    fun callback(_hWnd: WinDef.HWND?, pointer: Pointer?): Boolean {
+    val callback = WinUser.WNDENUMPROC { _hWnd, _ ->
         try {
             val nameArray = CharArray(512)
-            User32.INSTANCE.GetWindowText(_hWnd, nameArray, nameArray.size)
-            val winName = String(nameArray.sliceArray(0 until nameArray.indexOf('\u0000')))
+            val length = User32.INSTANCE.GetWindowText(_hWnd, nameArray, nameArray.size)
+            val winName = String(nameArray.sliceArray(0 until length))
 
             if (winName.contains(name)) {
                 println("Window found: [$winName] $_hWnd")
                 hWnd = _hWnd
-                return false
+                return@WNDENUMPROC false
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        return true
+        true
     }
 
     if (parent == null)
-        User32.INSTANCE.EnumWindows(::callback, null)
+        User32.INSTANCE.EnumWindows(callback, null)
     else
-        User32.INSTANCE.EnumChildWindows(parent, ::callback, null)
+        User32.INSTANCE.EnumChildWindows(parent, callback, null)
 
     return hWnd
 }
