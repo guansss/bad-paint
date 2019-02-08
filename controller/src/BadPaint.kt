@@ -12,12 +12,29 @@ val PAINT_BLACK = Paint(0, 1700, 200)
 val PAINT_WHITE = Paint(1, 1700, 330)
 
 fun main(args: Array<String>) {
-    if (args.isEmpty() || !args[0].endsWith(".bpv"))
-        throw Exception("A .bpv file is required to play")
+    if (args.isEmpty())
+        throw Exception("Argument required")
 
     val hWnd = getWindow("MuMu") ?: throw Exception("Window not found")
+    val muMuWin = MuMuWindow(hWnd)
 
-    play(MuMuWindow(hWnd), File(args[0]))
+    if (args[0] == "reset") {
+        reset(muMuWin)
+    } else {
+        if (args[0].endsWith(".bpv")) {
+            play(muMuWin, File(args[0]))
+        } else throw Exception("A .bpv file is required to play")
+    }
+}
+
+fun reset(win: Window) {
+    val gridSize = CANVAS_RECT.width / CANVAS_COLS
+    val minX = CANVAS_RECT.x + gridSize / 2
+    val minY = CANVAS_RECT.y + gridSize / 2
+
+    for (y in 0 until CANVAS_ROWS * gridSize step gridSize)
+        for (x in 0 until CANVAS_COLS * gridSize step gridSize)
+            win.click(minX + x, minY + y)
 }
 
 fun play(win: Window, file: File) {
