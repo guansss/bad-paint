@@ -1,4 +1,3 @@
-import com.sun.jna.Pointer
 import com.sun.jna.platform.win32.User32
 import com.sun.jna.platform.win32.WinDef
 import com.sun.jna.platform.win32.WinUser
@@ -7,6 +6,10 @@ import java.awt.Point
 import java.awt.Rectangle
 import java.io.File
 import java.lang.Exception
+
+const val TITLE_BAR_HEIGHT = 35
+const val GAME_RESOLUTION_WIDTH = 1920
+const val CAPTURE_TIMEOUT = 1500
 
 const val CANVAS_COLS = 37
 const val CANVAS_ROWS = 22
@@ -94,10 +97,10 @@ class MuMuWindow(private val hWnd: WinDef.HWND) {
         User32.INSTANCE.GetWindowRect(hWnd, winRect)
 
         rect = Rectangle(winRect.left, winRect.top, winRect.right - winRect.left, winRect.bottom - winRect.top)
-        scale = rect.width / 1920f
+        scale = rect.width / GAME_RESOLUTION_WIDTH.toFloat()
 
-        blackPaint = windowToScreen(Paint(PAINT_BLACK)) as Paint
-        whitePaint = windowToScreen(Paint(PAINT_WHITE)) as Paint
+        blackPaint = windowToGame(Paint(PAINT_BLACK)) as Paint
+        whitePaint = windowToGame(Paint(PAINT_WHITE)) as Paint
         paint = blackPaint
     }
 
@@ -110,7 +113,7 @@ class MuMuWindow(private val hWnd: WinDef.HWND) {
         }
 
         val pixel =
-            windowToScreen(Point(CANVAS_ORIGIN.x + col * CANVAS_GRID_SIZE, CANVAS_ORIGIN.y + row * CANVAS_GRID_SIZE))
+            windowToGame(Point(CANVAS_ORIGIN.x + col * CANVAS_GRID_SIZE, CANVAS_ORIGIN.y + row * CANVAS_GRID_SIZE))
         var waitTimes = 0
 
         while (getBrightness(pixel) != brightness) {
@@ -124,13 +127,13 @@ class MuMuWindow(private val hWnd: WinDef.HWND) {
     }
 
     private fun getBrightness(point: Point): Byte {
-        val color = Color(WinGDI.INSTANCE.GetPixel(canvasHDC, point.x, point.y - 35).toInt())
+        val color = Color(WinGDI.INSTANCE.GetPixel(canvasHDC, point.x, point.y - TITLE_BAR_HEIGHT).toInt())
         return (Color.RGBtoHSB(color.red, color.green, color.blue, null)[2] + 0.5).toByte()
     }
 
-    private fun windowToScreen(point: Point): Point {
+    private fun windowToGame(point: Point): Point {
         point.x = (point.x * scale).toInt()
-        point.y = (point.y * scale + 35).toInt() // offset 35 pixels of title bar
+        point.y = (point.y * scale + TITLE_BAR_HEIGHT).toInt()
         return point
     }
 
@@ -141,9 +144,9 @@ class MuMuWindow(private val hWnd: WinDef.HWND) {
     }
 
     fun capture() {
-        // wait 1.5 second for capture to finish
-        val dt = 1500 - (System.currentTimeMillis() - lastCaptureTime)
+        val dt = CAPTURE_TIMEOUT - (System.currentTimeMillis() - lastCaptureTime)
 
+        // wait for capture to finish
         if (dt > 0) Thread.sleep(dt)
         lastCaptureTime = System.currentTimeMillis()
 
@@ -182,10 +185,7 @@ fun getWindow(name: String, parent: WinDef.HWND?): WinDef.HWND? {
         true
     }
 
-    if (parent == null)
-        User32.INSTANCE.EnumWindows(callback, null)
-    else
-        User32.INSTANCE.EnumChildWindows(parent, callback, null)
+    User32.INSTANCE.EnumChildWindows(parent, callback, null)
 
     return hWnd
 }
